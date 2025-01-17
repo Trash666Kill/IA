@@ -1,12 +1,7 @@
 {
     "user_preferences": {
-        "tone": "formal",
-        "detail_level": "high"
+      "tone": "formal",
+      "detail_level": "high"
     },
-    "interaction_history": [
-        {
-            "user": "Olá, como você está?",
-            "llama": "Estou bem! Como posso ajudar hoje?"
-        }
-    ]
-}
+    "interaction_history": []
+  }  
