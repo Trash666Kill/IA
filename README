@@ -1,1 +1,12 @@
-dasdasda
+apt install python3-venv
+cd /caminho/para/seu/projeto
+python3 -m venv nome_do_venv
+source nome_do_venv/bin/activate
+pip install transformers sentence-transformers requests
+python3 llama_interactor.py
+deactivate
+
+
+
+
+curl http://localhost:11434/api/generate -d '{"model": "llama3", "prompt": "Olá!"}'
