@@ -1,7 +1,13 @@
 {
-    "google_api_key": "AIzaSyBXZel_1eDIIKRfwqlScFdOIX50pA39lWY",
+    "google_api_key": "SAIzaSyBXZel_1eDIIKRfwqlScFdOIX50pA39lWY",
     "custom_search_engine_id": "93b32a3d1a5cc40a0",
     "ollama_url": "http://localhost:11434/api/generate",
     "language": "pt",
-    "model": "llama3.2"
+    "model": "llama3.2",
+    "user_preferences": {
+      "tone": "formal",
+      "detail_level": "high"
+    },
+    "assistant_name": "HAL 9000"
   }
+  
