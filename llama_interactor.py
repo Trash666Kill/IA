@@ -1,9 +1,14 @@
 import json
 import requests
+from bs4 import BeautifulSoup
 import os
 
-# URL da API do Ollama
-OLLAMA_URL = "http://localhost:11434/api/generate"
+# URL da API de Pesquisa Personalizada do Google
+GOOGLE_API_URL = "https://www.googleapis.com/customsearch/v1"
+
+# Sua chave de API do Google e o ID do mecanismo de pesquisa
+API_KEY = "AIzaSyBXZel_1eDIIKRfwqlScFdOIX50pA39lWY"  # Sua chave de API
+CX = "93b32a3d1a5cc40a0"  # Seu ID do mecanismo de pesquisa
 
 # Caminho para o arquivo de memória
 MEMORY_FILE = "memory.json"
@@ -35,41 +40,56 @@ def generate_context(memory, user_input):
     context += f"Usuário: {user_input}\nLLaMA:"
     return context
 
-# Função para gerar a resposta do modelo
-def generate_response(prompt):
-    payload = {
-        "model": "llama3.2",  # Modelo LLaMA 3
-        "prompt": prompt,
-        "user_preferences": {
-            "language": "pt"  # Preferência para o idioma português
-        }
+# Função para realizar a pesquisa no Google
+def google_search(query):
+    params = {
+        "key": API_KEY,
+        "cx": CX,
+        "q": query,
     }
     try:
-        # Envia a solicitação para a API com streaming habilitado
-        response = requests.post(OLLAMA_URL, json=payload, stream=True)
+        response = requests.get(GOOGLE_API_URL, params=params)
         response.raise_for_status()
+        search_results = response.json()
 
-        # Processa cada linha de JSON recebida
-        full_response = ""
-        for line in response.iter_lines(decode_unicode=True):
-            if line.strip():
-                try:
-                    json_line = json.loads(line)
-                    full_response += json_line.get("response", "")
-                except json.JSONDecodeError as e:
-                    print(f"Erro ao processar linha JSON: {e}")
-
-        return full_response if full_response else "Erro: Resposta inesperada do modelo."
+        if "items" in search_results:
+            # Para cada link encontrado, tenta buscar o conteúdo da página
+            results = ""
+            for item in search_results["items"][:3]:
+                url = item['link']
+                page_content = get_page_content(url)
+                results += f"{item['title']}:\n{page_content}\n\n"
+            return results
+        else:
+            return "Nenhum resultado encontrado."
     except requests.exceptions.RequestException as e:
-        return f"Erro ao se comunicar com o modelo: {e}"
+        return f"Erro ao buscar na web: {e}"
+
+# Função para extrair o conteúdo de uma página web
+def get_page_content(url):
+    try:
+        page_response = requests.get(url)
+        page_response.raise_for_status()
+        soup = BeautifulSoup(page_response.text, 'html.parser')
+
+        # Tenta encontrar um conteúdo significativo na página (exemplo: parágrafos)
+        paragraphs = soup.find_all('p')
+        content = "\n".join([para.get_text() for para in paragraphs[:3]])  # Limita a 3 primeiras tags <p>
+        
+        if not content:
+            return "Não foi possível extrair conteúdo significativo."
+
+        return content
+    except requests.exceptions.RequestException as e:
+        return f"Erro ao acessar a página: {e}"
 
 # Função principal de interação
 def interact():
-    print("Iniciando interação com LLaMA 3 via Ollama. Digite 'sair' para encerrar.")
+    print("Iniciando interação com pesquisa na web. Digite 'sair' para encerrar.")
     memory = load_memory()
 
-    # Definir o nome do modelo como 'HAL' no início da conversa
-    print("LLaMA: Eu sou HAL 9000, seu assistente pessoal!")
+    # Definir o nome do assistente
+    print("Assistente: Olá, estou pronto para fazer pesquisas na web para você!")
 
     while True:
         user_input = input("Você: ")
@@ -78,8 +98,10 @@ def interact():
 
         # Gera o contexto com base no histórico de memória (todas as interações)
         prompt = generate_context(memory, user_input)
-        response = generate_response(prompt)
-        print(f"LLaMA: {response}")
+
+        # Realiza a pesquisa no Google e exibe o conteúdo da página
+        response = google_search(user_input)
+        print(f"Assistente: {response}")
 
         # Salva a interação na memória
         memory["interaction_history"].append({"user": user_input, "llama": response})
