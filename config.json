@@ -3,6 +3,6 @@
     "custom_search_engine_id": "93b32a3d1a5cc40a0",
     "ollama_url": "http://localhost:11434/api/generate",
     "language": "pt",
-    "model": "llama3"
+    "model": "llama3.2"
   }
   
