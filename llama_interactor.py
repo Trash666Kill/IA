@@ -38,7 +38,7 @@ def generate_context(memory, user_input):
 # Função para gerar a resposta do modelo
 def generate_response(prompt):
     payload = {
-        "model": "llama3",  # Modelo LLaMA 3
+        "model": "llama3.2",  # Modelo LLaMA 3
         "prompt": prompt,
         "user_preferences": {
             "language": "pt"  # Preferência para o idioma português
