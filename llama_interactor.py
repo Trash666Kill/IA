@@ -1,112 +1,74 @@
-import json
 import requests
-from bs4 import BeautifulSoup
+import json
 import os
 
-# URL da API de Pesquisa Personalizada do Google
-GOOGLE_API_URL = "https://www.googleapis.com/customsearch/v1"
+# Função para carregar um arquivo JSON
+def load_json(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
-# Sua chave de API do Google e o ID do mecanismo de pesquisa
-API_KEY = "AIzaSyBXZel_1eDIIKRfwqlScFdOIX50pA39lWY"  # Sua chave de API
-CX = "93b32a3d1a5cc40a0"  # Seu ID do mecanismo de pesquisa
+# Função para salvar um dicionário como JSON
+def save_json(file_path, data):
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
-# Caminho para o arquivo de memória
-MEMORY_FILE = "memory.json"
+# Função para enviar o prompt ao Ollama
+def send_to_ollama(prompt, config):
+    url = config.get("ollama_url", "http://localhost:11434/api/generate")
+    model = config.get("model", "llama3.2")
 
-# Função para carregar a memória do arquivo
-def load_memory():
-    if os.path.exists(MEMORY_FILE):
-        try:
-            with open(MEMORY_FILE, "r") as file:
-                return json.load(file)
-        except json.JSONDecodeError as e:
-            print(f"Erro ao carregar a memória: {e}")
-            return {"interaction_history": []}
-    return {"interaction_history": []}
+    payload = {"model": model, "prompt": prompt}
 
-# Função para salvar a memória no arquivo
-def save_memory(memory):
     try:
-        with open(MEMORY_FILE, "w") as file:
-            json.dump(memory, file, indent=4)
-    except Exception as e:
-        print(f"Erro ao salvar a memória: {e}")
-
-# Função para gerar o contexto a partir da memória
-def generate_context(memory, user_input):
-    context = "Contexto da conversa:\n"
-    for interaction in memory["interaction_history"]:  # Incluir todas as interações
-        context += f"Usuário: {interaction['user']}\nLLaMA: {interaction['llama']}\n"
-    context += f"Usuário: {user_input}\nLLaMA:"
-    return context
-
-# Função para realizar a pesquisa no Google
-def google_search(query):
-    params = {
-        "key": API_KEY,
-        "cx": CX,
-        "q": query,
-    }
-    try:
-        response = requests.get(GOOGLE_API_URL, params=params)
+        # Realiza a requisição ao Ollama com streaming
+        response = requests.post(url, json=payload, stream=True)
         response.raise_for_status()
-        search_results = response.json()
 
-        if "items" in search_results:
-            # Para cada link encontrado, tenta buscar o conteúdo da página
-            results = ""
-            for item in search_results["items"][:3]:
-                url = item['link']
-                page_content = get_page_content(url)
-                results += f"{item['title']}:\n{page_content}\n\n"
-            return results
-        else:
-            return "Nenhum resultado encontrado."
+        # Processa os dados de streaming JSON
+        full_response = ""
+        for line in response.iter_lines(decode_unicode=True):
+            if line:
+                try:
+                    data = json.loads(line)
+                    full_response += data.get("response", "")
+                except json.JSONDecodeError:
+                    continue
+
+        return full_response or "[Erro: Nenhuma resposta do modelo.]"
+
     except requests.exceptions.RequestException as e:
-        return f"Erro ao buscar na web: {e}"
+        return f"[Erro ao conectar ao Ollama: {e}]"
 
-# Função para extrair o conteúdo de uma página web
-def get_page_content(url):
-    try:
-        page_response = requests.get(url)
-        page_response.raise_for_status()
-        soup = BeautifulSoup(page_response.text, 'html.parser')
+# Função principal para interação
+def main():
+    # Carrega configurações e memória
+    config = load_json("config.json")
+    memory = load_json("memory.json")
 
-        # Tenta encontrar um conteúdo significativo na página (exemplo: parágrafos)
-        paragraphs = soup.find_all('p')
-        content = "\n".join([para.get_text() for para in paragraphs[:3]])  # Limita a 3 primeiras tags <p>
-        
-        if not content:
-            return "Não foi possível extrair conteúdo significativo."
-
-        return content
-    except requests.exceptions.RequestException as e:
-        return f"Erro ao acessar a página: {e}"
-
-# Função principal de interação
-def interact():
-    print("Iniciando interação com pesquisa na web. Digite 'sair' para encerrar.")
-    memory = load_memory()
-
-    # Definir o nome do assistente
-    print("Assistente: Olá, estou pronto para fazer pesquisas na web para você!")
+    print("Iniciando interação. Digite 'sair' para encerrar.")
+    print("LLaMA (Formal, Português (Brasil)): Olá, estou pronto para conversar com você!")
 
     while True:
         user_input = input("Você: ")
         if user_input.lower() == "sair":
+            print("LLaMA: Até logo!")
             break
 
-        # Gera o contexto com base no histórico de memória (todas as interações)
-        prompt = generate_context(memory, user_input)
+        # Adiciona ao histórico de memória
+        memory.setdefault("interactions", []).append({"user": user_input})
 
-        # Realiza a pesquisa no Google e exibe o conteúdo da página
-        response = google_search(user_input)
-        print(f"Assistente: {response}")
+        # Envia o prompt ao Ollama
+        response = send_to_ollama(user_input, config)
+        print(f"LLaMA: {response}")
 
-        # Salva a interação na memória
-        memory["interaction_history"].append({"user": user_input, "llama": response})
-        save_memory(memory)
+        # Salva a resposta na memória
+        memory["interactions"][-1]["llama"] = response
 
-# Execução do programa
+        # Atualiza o arquivo de memória
+        save_json("memory.json", memory)
+
+
 if __name__ == "__main__":
-    interact()
+    main()
