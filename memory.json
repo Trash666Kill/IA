@@ -1,8 +1,11 @@
 {
+  "user_preferences": {
+      "tone": "formal",
+      "detail_level": "high"
+  },
   "interactions": [
       {
           "user": "Qual a raiz quadrada de 64?",
           "llama": "A raiz quadrada de 64 é 8, pois 8 × 8 = 64."
       }
   ]
-}
