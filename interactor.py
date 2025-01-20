@@ -102,10 +102,11 @@ def generate_response(prompt):
 # Função principal de interação
 def interact():
     print("Iniciando interação com LLaMA 3.2 via Ollama. Digite 'sair' para encerrar.")
+    
+    # Iniciando memória e ajustando mensagem de conscientização
     memory = load_memory()
-
-    # Definir o nome do modelo como 'HAL' no início da conversa
     print("LLaMA: Eu sou HAL 9000, seu assistente pessoal!")
+    print("LLaMA: Fui atualizado para ter capacidade de memória, agora posso lembrar interações passadas e evoluir com base nelas.")
 
     while True:
         user_input = input("Você: ")
