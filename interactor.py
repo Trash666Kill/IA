@@ -8,8 +8,11 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 # Caminho para o arquivo de memória
 MEMORY_FILE = "memory.json"
 
-# Controle do log do payload
-ENABLE_PAYLOAD_LOG = False
+# Variáveis de configuração
+MAX_INTERACTIONS = 5  # Quantidade de interações lembradas
+SUMMARY_DETAIL_LEVEL = "alta"  # Nível de detalhamento do resumo (ex: "baixa", "média", "alta")
+ALLOW_SENSITIVE_DATA = False  # Defina como True se você permitir o uso de dados sensíveis
+ENABLE_PAYLOAD_LOG = True  # Controle do log do payload (habilitar/desabilitar)
 
 # Função para carregar a memória do arquivo
 def load_memory():
@@ -33,39 +36,56 @@ def save_memory(memory):
 # Função para gerar o contexto a partir da memória
 def generate_context(memory, user_input):
     context = "Contexto da conversa:\n"
-    for interaction in memory["interaction_history"]:
+    
+    # Limitar as interações armazenadas (configurável)
+    interactions = memory["interaction_history"][-MAX_INTERACTIONS:]
+    
+    for interaction in interactions:
         context += f"Usuário: {interaction['user']}\nLLaMA: {interaction['llama']}\n"
+    
     context += f"Usuário: {user_input}\nLLaMA:"
     return context
 
-# Função para salvar a interação somente se não for repetitiva
-def save_interaction(memory, user_input, llama_response):
-    if memory["interaction_history"] and memory["interaction_history"][-1]["llama"] == llama_response:
-        print("Resposta repetitiva detectada, interação não será salva.")
-        return
-    memory["interaction_history"].append({"user": user_input, "llama": llama_response})
-    save_memory(memory)
+# Função para gerar o resumo das interações anteriores com base no nível de detalhamento
+def generate_summary(memory):
+    summary = "Resumo das interações anteriores:\n"
+    
+    interactions = memory["interaction_history"][-MAX_INTERACTIONS:]
+    
+    for i, interaction in enumerate(interactions):
+        if SUMMARY_DETAIL_LEVEL == "baixa":
+            summary += f"{i+1}. Usuário: {interaction['user']} | LLaMA: {interaction['llama'][:30]}...\n"  # Resumo curto
+        elif SUMMARY_DETAIL_LEVEL == "média":
+            summary += f"{i+1}. Usuário: {interaction['user']} | LLaMA: {interaction['llama'][:60]}...\n"  # Resumo médio
+        else:
+            summary += f"{i+1}. Usuário: {interaction['user']} | LLaMA: {interaction['llama']}\n"  # Resumo completo
+    
+    return summary
 
 # Função para gerar a resposta do modelo
 def generate_response(prompt):
     payload = {
-        "model": "llama3.2",
+        "model": "llama3.2",  # Modelo LLaMA 3.2
         "prompt": prompt,
         "user_preferences": {
-            "language": "pt"
+            "language": "pt"  # Preferência para o idioma português
         }
     }
 
-    # Exibir o payload somente se habilitado
+    # Controle do log do payload
     if ENABLE_PAYLOAD_LOG:
-        print("\n=== Payload enviado ===")
-        print(json.dumps(payload, indent=4, ensure_ascii=False))
-        print("=======================\n")
-
+        print(f"=== Payload enviado ===\n{json.dumps(payload, indent=4)}\n=======================")
+    
+    # Adiciona controle de dados sensíveis
+    if not ALLOW_SENSITIVE_DATA:
+        prompt = f"{prompt}\n(Esta interação foi filtrada para evitar dados sensíveis.)"
+    
     try:
+        # Envia a solicitação para a API com streaming habilitado
         response = requests.post(OLLAMA_URL, json=payload, stream=True)
         response.raise_for_status()
 
+        # Processa cada linha de JSON recebida
         full_response = ""
         for line in response.iter_lines(decode_unicode=True):
             if line.strip():
@@ -84,6 +104,7 @@ def interact():
     print("Iniciando interação com LLaMA 3.2 via Ollama. Digite 'sair' para encerrar.")
     memory = load_memory()
 
+    # Definir o nome do modelo como 'HAL' no início da conversa
     print("LLaMA: Eu sou HAL 9000, seu assistente pessoal!")
 
     while True:
@@ -91,11 +112,20 @@ def interact():
         if user_input.lower() == "sair":
             break
 
+        # Gera o contexto com base no histórico de memória (todas as interações)
         prompt = generate_context(memory, user_input)
         response = generate_response(prompt)
+        
         print(f"LLaMA: {response}")
 
-        save_interaction(memory, user_input, response)
+        # Se o usuário pedir um resumo, forneça-o
+        if "resumo" in user_input.lower():
+            summary = generate_summary(memory)
+            print(f"Resumo: {summary}")
+
+        # Salva a interação na memória
+        memory["interaction_history"].append({"user": user_input, "llama": response})
+        save_memory(memory)
 
 # Execução do programa
 if __name__ == "__main__":
