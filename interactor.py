@@ -8,10 +8,8 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 # Caminho para o arquivo de memória
 MEMORY_FILE = "memory.json"
 
-# Preferências do usuário
-USER_PREFERENCES = {
-    "language": "pt"  # Preferência para o idioma português
-}
+# Controle do log do payload
+ENABLE_PAYLOAD_LOG = False
 
 # Função para carregar a memória do arquivo
 def load_memory():
@@ -38,27 +36,36 @@ def generate_context(memory, user_input):
     for interaction in memory["interaction_history"]:
         context += f"Usuário: {interaction['user']}\nLLaMA: {interaction['llama']}\n"
     context += f"Usuário: {user_input}\nLLaMA:"
-    print("\n=== Contexto gerado ===")
-    print(context)
-    print("=======================\n")
     return context
+
+# Função para salvar a interação somente se não for repetitiva
+def save_interaction(memory, user_input, llama_response):
+    if memory["interaction_history"] and memory["interaction_history"][-1]["llama"] == llama_response:
+        print("Resposta repetitiva detectada, interação não será salva.")
+        return
+    memory["interaction_history"].append({"user": user_input, "llama": llama_response})
+    save_memory(memory)
 
 # Função para gerar a resposta do modelo
 def generate_response(prompt):
     payload = {
-        "model": "llama3.2",  # Modelo atualizado
+        "model": "llama3.2",
         "prompt": prompt,
-        "user_preferences": USER_PREFERENCES
+        "user_preferences": {
+            "language": "pt"
+        }
     }
-    print("\n=== Payload enviado ===")
-    print(json.dumps(payload, indent=4))
-    print("=======================\n")
+
+    # Exibir o payload somente se habilitado
+    if ENABLE_PAYLOAD_LOG:
+        print("\n=== Payload enviado ===")
+        print(json.dumps(payload, indent=4, ensure_ascii=False))
+        print("=======================\n")
+
     try:
-        # Envia a solicitação para a API com streaming habilitado
         response = requests.post(OLLAMA_URL, json=payload, stream=True)
         response.raise_for_status()
 
-        # Processa cada linha de JSON recebida
         full_response = ""
         for line in response.iter_lines(decode_unicode=True):
             if line.strip():
@@ -77,7 +84,6 @@ def interact():
     print("Iniciando interação com LLaMA 3.2 via Ollama. Digite 'sair' para encerrar.")
     memory = load_memory()
 
-    # Definir o nome do modelo como 'HAL' no início da conversa
     print("LLaMA: Eu sou HAL 9000, seu assistente pessoal!")
 
     while True:
@@ -85,14 +91,11 @@ def interact():
         if user_input.lower() == "sair":
             break
 
-        # Gera o contexto com base no histórico de memória (todas as interações)
         prompt = generate_context(memory, user_input)
         response = generate_response(prompt)
         print(f"LLaMA: {response}")
 
-        # Salva a interação na memória
-        memory["interaction_history"].append({"user": user_input, "llama": response})
-        save_memory(memory)
+        save_interaction(memory, user_input, response)
 
 # Execução do programa
 if __name__ == "__main__":
