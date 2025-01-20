@@ -8,6 +8,11 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 # Caminho para o arquivo de memória
 MEMORY_FILE = "memory.json"
 
+# Preferências do usuário
+USER_PREFERENCES = {
+    "language": "pt"  # Preferência para o idioma português
+}
+
 # Função para carregar a memória do arquivo
 def load_memory():
     if os.path.exists(MEMORY_FILE):
@@ -30,20 +35,24 @@ def save_memory(memory):
 # Função para gerar o contexto a partir da memória
 def generate_context(memory, user_input):
     context = "Contexto da conversa:\n"
-    for interaction in memory["interaction_history"]:  # Incluir todas as interações
+    for interaction in memory["interaction_history"]:
         context += f"Usuário: {interaction['user']}\nLLaMA: {interaction['llama']}\n"
     context += f"Usuário: {user_input}\nLLaMA:"
+    print("\n=== Contexto gerado ===")
+    print(context)
+    print("=======================\n")
     return context
 
 # Função para gerar a resposta do modelo
 def generate_response(prompt):
     payload = {
-        "model": "llama3",  # Modelo LLaMA 3
+        "model": "llama3.2",  # Modelo atualizado
         "prompt": prompt,
-        "user_preferences": {
-            "language": "pt"  # Preferência para o idioma português
-        }
+        "user_preferences": USER_PREFERENCES
     }
+    print("\n=== Payload enviado ===")
+    print(json.dumps(payload, indent=4))
+    print("=======================\n")
     try:
         # Envia a solicitação para a API com streaming habilitado
         response = requests.post(OLLAMA_URL, json=payload, stream=True)
@@ -65,7 +74,7 @@ def generate_response(prompt):
 
 # Função principal de interação
 def interact():
-    print("Iniciando interação com LLaMA 3 via Ollama. Digite 'sair' para encerrar.")
+    print("Iniciando interação com LLaMA 3.2 via Ollama. Digite 'sair' para encerrar.")
     memory = load_memory()
 
     # Definir o nome do modelo como 'HAL' no início da conversa
