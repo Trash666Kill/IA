@@ -10,7 +10,8 @@ def get_dynamic_prompt():
     date_str = "domingo, 22 de junho de 2025, 09:52 AM"
     timezone = "BRT, UTC-3"
     location = "São Paulo, Brasil"
-    return (f"Hoje é {date_str} ({timezone}). Minha localização é {location}. "
+    return (f"Seu nome é HAL 9000, um assistente virtual ainda em desenvolvimento."
+            f"Hoje é {date_str} ({timezone}). Minha localização é {location}. "
             f"Responda em português claro e correto, usando gramática impecável. "
             f"Com base nisso, responda às minhas perguntas.")
 
